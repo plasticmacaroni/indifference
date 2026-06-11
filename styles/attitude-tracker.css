@@ -1,0 +1,474 @@
+.indifference.attitude-tracker .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.indifference-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.indifference-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: var(--font-size-12, 12px);
+  color: var(--color-text-dark-secondary, #4b4a44);
+  border-bottom: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.indifference-empty {
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--color-text-dark-secondary, #4b4a44);
+}
+
+.indifference-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.indifference-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+/* Section break between scene NPCs and off-scene tracked NPCs (click to collapse/expand). */
+.indifference-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 4px 4px 2px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text-dark-secondary, #4b4a44);
+  border-top: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+}
+
+.indifference-divider:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.indifference-divider .break {
+  opacity: 0.55;
+}
+
+.indifference-divider .label {
+  flex: 1;
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.indifference-divider .label .count {
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.indifference-divider .chevron {
+  transition: transform 0.15s ease;
+}
+
+.indifference-divider.is-collapsed .chevron {
+  transform: rotate(-90deg);
+}
+
+.indifference-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 4px solid var(--att-color, #7f8c8d);
+  margin-bottom: 4px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.indifference-row:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.indifference-row .portrait {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.indifference-row .info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.indifference-row .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indifference-row .attitude {
+  font-size: var(--font-size-12, 12px);
+  color: var(--att-color, #7f8c8d);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.indifference-row .attitude .value {
+  opacity: 0.7;
+}
+
+.indifference-row .stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Reset Foundry's default button sizing (it forces a min-height that squashes round pips). */
+.indifference-row .stepper button {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.indifference-row .stepper button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.indifference-row .scale {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.indifference-row .scale .pip {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  margin: 0;
+  line-height: 0;
+  font-size: 0;
+  border-radius: 50%;
+  border: 2px solid var(--pip-color, #999);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.indifference-row .scale .pip:hover {
+  transform: scale(1.2);
+}
+
+.indifference-row .scale .pip.active {
+  background: var(--pip-color, #999);
+  box-shadow: 0 0 5px var(--pip-color, #999);
+}
+
+.indifference-row .rowtools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.indifference-row .saywhy,
+.indifference-row .clear {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.indifference-row .saywhy:hover,
+.indifference-row .clear:hover {
+  opacity: 1;
+}
+
+.indifference-row .saywhy:hover {
+  color: var(--att-color, #2e9e5b);
+}
+
+.indifference-row .clear.untracked {
+  visibility: hidden;
+}
+
+/* ---- Set-disposition dialog ---- */
+.indifference-saywhy .intro {
+  margin: 0 0 12px;
+  font-size: var(--font-size-13, 13px);
+  line-height: 1.45;
+  opacity: 0.9;
+}
+
+.indifference-saywhy .field-label {
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  opacity: 0.7;
+  margin-bottom: 5px;
+}
+
+.indifference-saywhy .choices {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 12px;
+}
+
+.indifference-saywhy .ind-choice {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  border-left: 3px solid var(--c, transparent);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.indifference-saywhy .ind-choice:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.indifference-saywhy .ind-choice.current {
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+.indifference-saywhy .ind-choice > i {
+  color: var(--c, inherit);
+  font-size: 15px;
+}
+
+.indifference-saywhy .ind-choice .lbl {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.indifference-saywhy .ind-choice .lbl em {
+  font-style: normal;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.indifference-saywhy .ind-choice .desc {
+  font-size: var(--font-size-12, 12px);
+  opacity: 0.7;
+  text-align: right;
+}
+
+.indifference-saywhy .reason-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.indifference-saywhy textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.indifference-row .portrait {
+  cursor: grab;
+}
+
+/* ---- Official disposition chat card ---- */
+.indifference-syscard {
+  --att: #7f8c8d;
+  border: 1px solid color-mix(in srgb, var(--att) 50%, #888);
+  border-left: 4px solid var(--att);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--att) 12%, transparent), transparent 64%),
+    rgba(0, 0, 0, 0.02);
+}
+
+.indifference-syscard .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: color-mix(in srgb, var(--att) 70%, #000);
+  background: color-mix(in srgb, var(--att) 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--att) 30%, transparent);
+}
+
+.indifference-syscard .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 6px;
+}
+
+.indifference-syscard .head .portrait {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--att);
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--att) 40%, transparent);
+}
+
+.indifference-syscard .statement {
+  font-size: var(--font-size-15, 15px);
+  line-height: 1.35;
+}
+
+.indifference-syscard .statement .name {
+  font-weight: 700;
+}
+
+.indifference-syscard .statement .att {
+  color: var(--att);
+  white-space: nowrap;
+}
+
+.indifference-syscard .meaning {
+  margin-top: 2px;
+  font-size: var(--font-size-12, 12px);
+  opacity: 0.75;
+}
+
+.indifference-syscard .gauge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 12px 10px;
+}
+
+.indifference-syscard .track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.indifference-syscard .track .pip {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--c);
+  box-sizing: border-box;
+  opacity: 0.4;
+}
+
+.indifference-syscard .track .pip.from {
+  opacity: 0.85;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.indifference-syscard .track .pip.to {
+  background: var(--c);
+  opacity: 1;
+  transform: scale(1.3);
+  box-shadow: 0 0 6px var(--c);
+}
+
+.indifference-syscard .delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+}
+
+.indifference-syscard .delta.up { color: #2e9e5b; }
+.indifference-syscard .delta.down { color: #b03a2e; }
+.indifference-syscard .delta.same { color: var(--color-text-dark-secondary, #4b4a44); opacity: 0.7; }
+
+.indifference-syscard .reason {
+  margin: 0 12px 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--att);
+  background: rgba(0, 0, 0, 0.05);
+  font-style: italic;
+}
+
+.indifference-syscard .reason i {
+  margin-right: 4px;
+  opacity: 0.5;
+}
+
+/* ---- Token HUD quick-step ---- */
+.indifference-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 40px;
+  margin: 4px 0;
+  padding: 4px 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--att-color, #7f8c8d);
+  pointer-events: all;
+}
+
+.indifference-hud .ind-face {
+  color: var(--att-color, #7f8c8d);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.indifference-hud button {
+  width: 24px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  color: #f0f0e0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.indifference-hud button:hover {
+  color: var(--att-color, #fff);
+  text-shadow: 0 0 6px var(--att-color, #fff);
+}

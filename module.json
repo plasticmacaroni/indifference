@@ -1,0 +1,41 @@
+{
+  "id": "indifference",
+  "title": "Indifference — PF2e Disposition Tracker",
+  "description": "Track every NPC's attitude toward the party on the Pathfinder 2e ladder (Hostile to Helpful) from a GM dashboard, then post official disposition-change cards to chat.",
+  "version": "0.1.0",
+  "authors": [
+    { "name": "plasticmacaroni" }
+  ],
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14"
+  },
+  "relationships": {
+    "systems": [
+      { "id": "pf2e", "type": "system" }
+    ]
+  },
+  "esmodules": ["scripts/attitude-tracker.js"],
+  "styles": ["styles/attitude-tracker.css"],
+  "languages": [
+    { "lang": "en", "name": "English", "path": "lang/en.json" }
+  ],
+  "url": "https://github.com/plasticmacaroni/indifference",
+  "readme": "https://github.com/plasticmacaroni/indifference/blob/main/README.md",
+  "changelog": "https://github.com/plasticmacaroni/indifference/blob/main/CHANGELOG.md",
+  "bugs": "https://github.com/plasticmacaroni/indifference/issues",
+  "license": "https://github.com/plasticmacaroni/indifference/blob/main/LICENSE",
+  "manifest": "https://github.com/plasticmacaroni/indifference/releases/latest/download/module.json",
+  "download": "https://github.com/plasticmacaroni/indifference/releases/download/v0.1.0/module.zip",
+  "flags": {
+    "hotReload": {
+      "extensions": ["css", "hbs", "json"],
+      "paths": ["styles/attitude-tracker.css", "templates/tracker.hbs", "lang/en.json"]
+    },
+    "media": [
+      { "type": "cover", "url": "https://raw.githubusercontent.com/plasticmacaroni/indifference/main/docs/dashboard.png" },
+      { "type": "screenshot", "url": "https://raw.githubusercontent.com/plasticmacaroni/indifference/main/docs/dashboard.png", "caption": "GM dashboard: scene NPCs, with a collapsible off-scene group" },
+      { "type": "screenshot", "url": "https://raw.githubusercontent.com/plasticmacaroni/indifference/main/docs/chat-card.png", "caption": "Official disposition-change card posted to chat" }
+    ]
+  }
+}

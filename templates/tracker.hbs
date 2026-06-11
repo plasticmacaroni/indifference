@@ -1,0 +1,86 @@
+<div class="indifference-body">
+  {{#*inline "attitudeRow"}}
+  <li class="indifference-row" data-actor-id="{{this.id}}" style="--att-color: {{this.color}};">
+    <img class="portrait" src="{{this.img}}" alt="{{this.name}}" draggable="true"
+         data-action="openActor" data-actor-id="{{this.id}}"
+         title="{{localize 'INDIFFERENCE.PortraitHint'}}" />
+
+    <div class="info">
+      <span class="name">{{this.name}}</span>
+      <span class="attitude">
+        <i class="fa-solid {{this.icon}}"></i>
+        {{this.label}} <span class="value">({{this.signed}})</span>
+      </span>
+    </div>
+
+    <div class="stepper">
+      <button type="button" class="dec" data-action="step"
+              data-actor-id="{{this.id}}" data-delta="-1"
+              {{#if this.isMin}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Lower'}}">
+        <i class="fa-solid fa-minus"></i>
+      </button>
+
+      <div class="scale">
+        {{#each this.scale}}
+        <button type="button" class="pip {{#if this.active}}active{{/if}}"
+                title="{{this.label}}"
+                data-action="setValue" data-actor-id="{{../id}}" data-value="{{this.value}}"
+                style="--pip-color: {{this.color}};"></button>
+        {{/each}}
+      </div>
+
+      <button type="button" class="inc" data-action="step"
+              data-actor-id="{{this.id}}" data-delta="1"
+              {{#if this.isMax}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Raise'}}">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+
+    <div class="rowtools">
+      <button type="button" class="saywhy" data-action="sayWhy" data-actor-id="{{this.id}}"
+              title="{{localize 'INDIFFERENCE.SayWhy.Button'}}">
+        <i class="fa-solid fa-comment-dots"></i>
+      </button>
+      <button type="button" class="clear {{#unless this.tracked}}untracked{{/unless}}"
+              data-action="clear" data-actor-id="{{this.id}}"
+              title="{{localize 'INDIFFERENCE.Clear'}}">
+        <i class="fa-solid fa-rotate-left"></i>
+      </button>
+    </div>
+  </li>
+  {{/inline}}
+
+  <div class="indifference-toolbar">
+    <i class="fa-solid fa-circle-info"></i>
+    <span class="hint">{{localize "INDIFFERENCE.TrackerHint"}}</span>
+  </div>
+
+  {{#if empty}}
+    <p class="indifference-empty">{{localize "INDIFFERENCE.Empty"}}</p>
+  {{else}}
+    <div class="indifference-scroll">
+      {{#if hasScene}}
+        <ul class="indifference-list scene">
+          {{#each sceneRows}}{{> attitudeRow}}{{/each}}
+        </ul>
+      {{/if}}
+
+      {{#if hasTracked}}
+        <div class="indifference-divider {{#if collapsed}}is-collapsed{{/if}}"
+             data-action="toggleCollapse" title="{{localize 'INDIFFERENCE.ToggleTracked'}}">
+          <i class="fa-solid fa-grip-lines break"></i>
+          <span class="label">{{localize 'INDIFFERENCE.TrackedHeading'}}
+            <span class="count">{{trackedCount}}</span>
+          </span>
+          <i class="fa-solid fa-chevron-down chevron"></i>
+        </div>
+
+        {{#unless collapsed}}
+          <ul class="indifference-list tracked">
+            {{#each trackedRows}}{{> attitudeRow}}{{/each}}
+          </ul>
+        {{/unless}}
+      {{/if}}
+    </div>
+  {{/if}}
+</div>
