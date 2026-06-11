@@ -1,0 +1,16 @@
+# Foundry server build + local dev install (never commit)
+FoundryVTT-*.zip
+.dev-install.sh
+
+# Build output (created by the release workflow)
+/module.zip
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.kate-swp
+.*.kate-swp
+*~
+.idea/
+.vscode/

@@ -1,65 +1,173 @@
 <div class="indifference-body">
   {{#*inline "attitudeRow"}}
-  <li class="indifference-row" data-actor-id="{{this.id}}" style="--att-color: {{this.color}};">
-    <img class="portrait" src="{{this.img}}" alt="{{this.name}}" draggable="true"
-         data-action="openActor" data-actor-id="{{this.id}}"
-         title="{{localize 'INDIFFERENCE.PortraitHint'}}" />
+  <li class="indifference-row {{this.kind}} {{#if this.expanded}}is-expanded{{/if}}"
+      data-kind="{{this.kind}}" data-id="{{this.id}}" style="--att-color: {{this.color}};">
+    <div class="rowmain">
+      {{#if this.img}}
+      <img class="portrait" src="{{this.img}}" alt="{{this.name}}"
+           {{#if this.isNpc}}draggable="true" data-action="openActor" data-actor-id="{{this.id}}"
+           title="{{localize 'INDIFFERENCE.PortraitHint'}}"{{/if}} />
+      {{else}}
+      <span class="portrait flag"><i class="fa-solid fa-flag"></i></span>
+      {{/if}}
 
-    <div class="info">
-      <span class="name">{{this.name}}</span>
-      <span class="attitude">
-        <i class="fa-solid {{this.icon}}"></i>
-        {{this.label}} <span class="value">({{this.signed}})</span>
-      </span>
-    </div>
-
-    <div class="stepper">
-      <button type="button" class="dec" data-action="step"
-              data-actor-id="{{this.id}}" data-delta="-1"
-              {{#if this.isMin}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Lower'}}">
-        <i class="fa-solid fa-minus"></i>
-      </button>
-
-      <div class="scale">
-        {{#each this.scale}}
-        <button type="button" class="pip {{#if this.active}}active{{/if}}"
-                title="{{this.label}}"
-                data-action="setValue" data-actor-id="{{../id}}" data-value="{{this.value}}"
-                style="--pip-color: {{this.color}};"></button>
-        {{/each}}
+      <div class="info" data-action="toggleExpand" title="{{localize 'INDIFFERENCE.ExpandHint'}}">
+        <span class="name">{{this.name}} <i class="fa-solid fa-chevron-{{#if this.expanded}}down{{else}}right{{/if}} expander"></i></span>
+        <span class="attitude">
+          <i class="fa-solid {{this.icon}}"></i>
+          {{this.label}} <span class="value">({{this.signed}})</span>
+          {{#unless this.isNpc}}
+          <span class="members" title="{{localize 'INDIFFERENCE.Faction.Members'}}">
+            · <i class="fa-solid fa-users"></i> {{this.memberCount}}
+          </span>
+          {{/unless}}
+        </span>
       </div>
 
-      <button type="button" class="inc" data-action="step"
-              data-actor-id="{{this.id}}" data-delta="1"
-              {{#if this.isMax}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Raise'}}">
-        <i class="fa-solid fa-plus"></i>
-      </button>
+      <div class="stepper">
+        <button type="button" class="dec" data-action="step" data-delta="-1"
+                {{#if this.isMin}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Lower'}}">
+          <i class="fa-solid fa-minus"></i>
+        </button>
+
+        <div class="scale">
+          {{#each this.scale}}
+          <button type="button" class="pip {{#if this.active}}active{{/if}}"
+                  title="{{this.label}}"
+                  data-action="setValue" data-value="{{this.value}}"
+                  style="--pip-color: {{this.color}};"></button>
+          {{/each}}
+        </div>
+
+        <button type="button" class="inc" data-action="step" data-delta="1"
+                {{#if this.isMax}}disabled{{/if}} title="{{localize 'INDIFFERENCE.Raise'}}">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <div class="rowtools">
+        <button type="button" class="saywhy" data-action="sayWhy"
+                title="{{localize 'INDIFFERENCE.SayWhy.Button'}}">
+          <i class="fa-solid fa-comment-dots"></i>
+        </button>
+        {{#if this.isNpc}}
+        <button type="button" class="clear {{#unless this.tracked}}untracked{{/unless}}"
+                data-action="clear" title="{{localize 'INDIFFERENCE.Clear'}}">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        {{else}}
+        <button type="button" class="clear" data-action="deleteFaction"
+                title="{{localize 'INDIFFERENCE.Faction.Delete'}}">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+        {{/if}}
+      </div>
     </div>
 
-    <div class="rowtools">
-      <button type="button" class="saywhy" data-action="sayWhy" data-actor-id="{{this.id}}"
-              title="{{localize 'INDIFFERENCE.SayWhy.Button'}}">
-        <i class="fa-solid fa-comment-dots"></i>
-      </button>
-      <button type="button" class="clear {{#unless this.tracked}}untracked{{/unless}}"
-              data-action="clear" data-actor-id="{{this.id}}"
-              title="{{localize 'INDIFFERENCE.Clear'}}">
-        <i class="fa-solid fa-rotate-left"></i>
-      </button>
+    {{#if this.expanded}}
+    <div class="expand">
+      {{#if this.isNpc}}
+      <div class="chips">
+        <span class="chips-label">{{localize 'INDIFFERENCE.Faction.AlignedTo'}}</span>
+        {{#each this.chips}}
+        <button type="button" class="chip {{#if this.active}}active{{/if}}"
+                data-action="toggleMember" data-faction-id="{{this.id}}"
+                title="{{localize 'INDIFFERENCE.Faction.ToggleHint'}}">
+          <i class="fa-solid fa-flag"></i> {{this.name}}
+        </button>
+        {{/each}}
+        {{#unless this.chips.length}}
+        <span class="none">{{localize 'INDIFFERENCE.Faction.NoneYet'}}</span>
+        {{/unless}}
+      </div>
+      {{else}}
+      {{#if this.members.length}}
+      <div class="chips">
+        <span class="chips-label">{{localize 'INDIFFERENCE.Faction.Members'}}</span>
+        {{#each this.members}}
+        <button type="button" class="chip member" data-action="openActor" data-actor-id="{{this.id}}"
+                title="{{localize 'INDIFFERENCE.Faction.OpenMember'}}">{{this.name}}</button>
+        {{/each}}
+      </div>
+      {{/if}}
+      {{/if}}
+
+      <ol class="timeline">
+        {{#each this.entries}}
+        <li class="entry {{this.dir}}">
+          <span class="when" title="{{this.whenFull}}">{{this.when}}</span>
+          <span class="shift" title="{{this.fromLabel}} &rarr; {{this.toLabel}}">
+            {{#if this.changed}}
+            <i class="fa-solid {{this.fromIcon}}" style="color: {{this.fromColor}}"></i>
+            <i class="fa-solid fa-arrow-right-long"></i>
+            {{/if}}
+            <i class="fa-solid {{this.toIcon}}" style="color: {{this.toColor}}"></i>
+          </span>
+          {{#unless this.announced}}
+          <i class="fa-solid fa-eye-slash silent" title="{{localize 'INDIFFERENCE.Timeline.Silent'}}"></i>
+          {{/unless}}
+          {{#if this.reason}}<span class="why">{{this.reason}}</span>{{/if}}
+        </li>
+        {{/each}}
+        {{#unless this.entries.length}}
+        <li class="entry none">{{localize 'INDIFFERENCE.Timeline.Empty'}}</li>
+        {{/unless}}
+      </ol>
     </div>
+    {{/if}}
   </li>
   {{/inline}}
 
   <div class="indifference-toolbar">
-    <i class="fa-solid fa-circle-info"></i>
-    <span class="hint">{{localize "INDIFFERENCE.TrackerHint"}}</span>
+    <div class="views">
+      {{#each views}}
+      <button type="button" class="view {{#if this.active}}active{{/if}}"
+              data-action="setView" data-view="{{this.id}}">{{this.label}}</button>
+      {{/each}}
+    </div>
+
+    {{#if anyFactionsExist}}
+    <select class="faction-filter" title="{{localize 'INDIFFERENCE.Filter.Hint'}}">
+      <option value="">{{localize 'INDIFFERENCE.Filter.All'}}</option>
+      {{#each factionOptions}}
+      <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+      {{/each}}
+    </select>
+    {{/if}}
+
+    <div class="tools">
+      <button type="button" class="icon" data-action="addFaction" title="{{localize 'INDIFFERENCE.Faction.New'}}">
+        <i class="fa-solid fa-flag"></i><i class="fa-solid fa-plus mini"></i>
+      </button>
+      <button type="button" class="icon" data-action="pinHotbar" title="{{localize 'INDIFFERENCE.Hotbar.Pin'}}">
+        <i class="fa-solid fa-thumbtack"></i>
+      </button>
+    </div>
   </div>
 
   {{#if empty}}
     <p class="indifference-empty">{{localize "INDIFFERENCE.Empty"}}</p>
   {{else}}
     <div class="indifference-scroll">
+      {{#if hasFactions}}
+        <div class="indifference-heading">
+          <i class="fa-solid fa-flag"></i>
+          <span class="label">{{localize 'INDIFFERENCE.FactionHeading'}}
+            <span class="count">{{factionCount}}</span>
+          </span>
+        </div>
+        <ul class="indifference-list factions">
+          {{#each factionRows}}{{> attitudeRow}}{{/each}}
+        </ul>
+      {{/if}}
+
       {{#if hasScene}}
+        {{#if hasFactions}}
+        <div class="indifference-heading">
+          <i class="fa-solid fa-map"></i>
+          <span class="label">{{localize 'INDIFFERENCE.SceneHeading'}}</span>
+        </div>
+        {{/if}}
         <ul class="indifference-list scene">
           {{#each sceneRows}}{{> attitudeRow}}{{/each}}
         </ul>
