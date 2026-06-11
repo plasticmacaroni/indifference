@@ -1,11 +1,12 @@
 /**
  * Indifference — PF2e Attitude Tracker
- * Tracks a party-wide attitude per NPC (and per faction) on the PF2e ladder (−2 Hostile … +2 Helpful).
+ * Tracks a party-wide attitude per NPC on the PF2e ladder (−2 Hostile … +2 Helpful) and a
+ * party reputation per faction on the PF2e reputation scale (−50 Hunted … +50 Revered).
  *
  * Storage: actor.getFlag("indifference", "attitude")  — integer attitude (unset = 0 / untracked)
  *          actor.getFlag("indifference", "log")       — change history [{t, from, to, reason, announced}]
  *          actor.getFlag("indifference", "factions")  — faction ids this NPC is aligned to
- *          world setting "indifference.factions"      — {id: {id, name, img, attitude, log}}
+ *          world setting "indifference.factions"      — {id: {id, name, color, icon, reputation, log}}
  * UI:      a standalone ApplicationV2 dashboard listing factions, scene NPCs + any tracked NPC,
  *          with an expandable per-row timeline of every change.
  */
@@ -27,8 +28,35 @@ const ATTITUDES = [
   { value:  2, key: "helpful",     label: "Helpful",     icon: "fa-face-laugh-beam", color: "#1f8a4c", blurb: "Wants to actively aid you and accepts reasonable Requests." }
 ];
 
+/** The PF2e reputation tiers (GM Core), highest to lowest, for factions. */
+const REP_MIN = -50;
+const REP_MAX = 50;
+const REPUTATIONS = [
+  { min:  30, max:  50, key: "revered",  label: "Revered",  icon: "fa-face-grin-stars", color: "#1f8a4c", blurb: "Champions of your cause; they take real risks for you." },
+  { min:  15, max:  29, key: "admired",  label: "Admired",  icon: "fa-face-laugh-beam", color: "#2e9e5b", blurb: "Actively support you and talk you up." },
+  { min:   5, max:  14, key: "liked",    label: "Liked",    icon: "fa-face-smile",      color: "#6aa84f", blurb: "Inclined to help when it's convenient." },
+  { min:  -4, max:   4, key: "ignored",  label: "Ignored",  icon: "fa-face-meh",        color: "#7f8c8d", blurb: "You're beneath their notice." },
+  { min: -14, max:  -5, key: "disliked", label: "Disliked", icon: "fa-face-frown",      color: "#c87f0a", blurb: "Avoid you and badmouth you." },
+  { min: -29, max: -15, key: "hated",    label: "Hated",    icon: "fa-face-angry",      color: "#b03a2e", blurb: "Work against you whenever they can." },
+  { min: -50, max: -30, key: "hunted",   label: "Hunted",   icon: "fa-skull",           color: "#7b241c", blurb: "Actively hunt you down." }
+];
+
+/** Icons a GM can pick for a faction. */
+const FACTION_ICONS = [
+  "fa-flag", "fa-shield-halved", "fa-crown", "fa-skull", "fa-dragon", "fa-chess-rook",
+  "fa-hand-fist", "fa-scale-balanced", "fa-anchor", "fa-coins", "fa-book", "fa-paw",
+  "fa-eye", "fa-hat-wizard", "fa-tree", "fa-masks-theater"
+];
+const DEFAULT_FACTION_ICON = "fa-flag";
+const DEFAULT_FACTION_COLOR = "#7f8c8d";
+
 const clamp = (n) => Math.max(-2, Math.min(2, Math.round(Number(n) || 0)));
+const clampRep = (n) => Math.max(REP_MIN, Math.min(REP_MAX, Math.round(Number(n) || 0)));
 const attitudeInfo = (value) => ATTITUDES.find((a) => a.value === clamp(value)) ?? ATTITUDES[2];
+const repInfo = (value) => {
+  const v = clampRep(value);
+  return REPUTATIONS.find((r) => v >= r.min && v <= r.max) ?? REPUTATIONS[3];
+};
 const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
 const esc = (s) => foundry.utils.escapeHTML?.(String(s ?? "")) ?? String(s ?? "");
 
@@ -42,24 +70,35 @@ const appendLog = (log, entry) => [...(Array.isArray(log) ? log : []), entry].sl
 /*  Factions (world-setting store)
 /* -------------------------------------------- */
 
-/** The raw faction store: {id: {id, name, img, attitude, log}}. */
+/** The raw faction store: {id: {id, name, color, icon, reputation, log}}. */
 const factionStore = () => game.settings.get(MODULE_ID, FACTIONS_SETTING) ?? {};
 
 const getFaction = (id) => factionStore()[id] ?? null;
 
 const allFactions = () =>
-  Object.values(factionStore()).sort((a, b) => clamp(b.attitude) - clamp(a.attitude) || a.name.localeCompare(b.name));
+  Object.values(factionStore()).sort((a, b) => clampRep(b.reputation) - clampRep(a.reputation) || a.name.localeCompare(b.name));
 
 async function saveFactions(store) {
   await game.settings.set(MODULE_ID, FACTIONS_SETTING, store);
 }
 
-async function createFaction(name, img = "") {
+async function createFaction(name, { color = DEFAULT_FACTION_COLOR, icon = DEFAULT_FACTION_ICON } = {}) {
   const id = foundry.utils.randomID();
   const store = foundry.utils.deepClone(factionStore());
-  store[id] = { id, name: String(name).trim(), img, attitude: 0, log: [] };
+  store[id] = { id, name: String(name).trim(), color, icon, reputation: 0, log: [] };
   await saveFactions(store);
   return store[id];
+}
+
+async function updateFaction(id, { name, color, icon } = {}) {
+  const store = foundry.utils.deepClone(factionStore());
+  const faction = store[id];
+  if (!faction) return;
+  if (name) faction.name = String(name).trim();
+  if (color) faction.color = color;
+  if (icon) faction.icon = icon;
+  await saveFactions(store);
+  return faction;
 }
 
 async function deleteFaction(id) {
@@ -68,22 +107,32 @@ async function deleteFaction(id) {
   await saveFactions(store);
 }
 
+/** One-time upgrade of 0.2.0 factions (attitude −2..+2) to reputation (−50..+50, ×10). */
+async function migrateFactions() {
+  const store = foundry.utils.deepClone(factionStore());
+  let changed = false;
+  for (const f of Object.values(store)) {
+    if (typeof f.reputation !== "number") {
+      f.reputation = clampRep((f.attitude ?? 0) * 10);
+      f.log = (f.log ?? []).map((e) => ({ ...e, from: clampRep(e.from * 10), to: clampRep(e.to * 10) }));
+      delete f.attitude;
+      changed = true;
+    }
+    if (!f.icon) { f.icon = DEFAULT_FACTION_ICON; changed = true; }
+    if (!f.color) { f.color = DEFAULT_FACTION_COLOR; changed = true; }
+  }
+  if (changed) await saveFactions(store);
+}
+
 /** Faction ids an actor is aligned to, filtered to factions that still exist. */
 const actorFactionIds = (actor) =>
   (actor?.getFlag(MODULE_ID, MEMBER_FLAG) ?? []).filter((id) => !!factionStore()[id]);
-
-async function toggleMembership(actor, factionId) {
-  if (!actor || !factionStore()[factionId]) return;
-  const ids = new Set(actorFactionIds(actor));
-  ids.has(factionId) ? ids.delete(factionId) : ids.add(factionId);
-  await actor.setFlag(MODULE_ID, MEMBER_FLAG, [...ids]);
-}
 
 const factionMembers = (factionId) =>
   game.actors.filter((a) => a.type === "npc" && (a.getFlag(MODULE_ID, MEMBER_FLAG) ?? []).includes(factionId));
 
 /* -------------------------------------------- */
-/*  Attitude writes (always logged with a timestamp)
+/*  Attitude / reputation writes (always logged with a timestamp)
 /* -------------------------------------------- */
 
 /**
@@ -104,38 +153,60 @@ async function writeActorAttitude(actor, value, { reason = "", announced = false
   return next;
 }
 
-async function writeFactionAttitude(id, value, { reason = "", announced = false, note = false } = {}) {
+async function writeFactionReputation(id, value, { reason = "", announced = false, note = false } = {}) {
   const store = foundry.utils.deepClone(factionStore());
   const faction = store[id];
   if (!faction) return;
-  const previous = clamp(faction.attitude);
-  const next = clamp(value);
+  const previous = clampRep(faction.reputation);
+  const next = clampRep(value);
   if (next === previous && !note) return next;
-  faction.attitude = next;
+  faction.reputation = next;
   faction.log = appendLog(faction.log, { t: Date.now(), from: previous, to: next, reason, announced });
   await saveFactions(store);
   return next;
 }
 
+/** Remove one history entry by its index in the stored (chronological) log. */
+async function deleteLogEntry(kind, id, index) {
+  if (kind === "faction") {
+    const store = foundry.utils.deepClone(factionStore());
+    const faction = store[id];
+    if (!faction?.log?.length) return;
+    faction.log.splice(index, 1);
+    await saveFactions(store);
+    return;
+  }
+  const actor = game.actors.get(id);
+  const log = [...(actor?.getFlag(MODULE_ID, LOG_FLAG) ?? [])];
+  if (!log.length) return;
+  log.splice(index, 1);
+  await actor.setFlag(MODULE_ID, LOG_FLAG, log);
+}
+
 /**
  * Uniform handle on an NPC or a faction, so the dialog/cards/rows don't branch.
- * @returns {null|{kind, id, name, img, value, log, write(value, opts)}}
+ * `infoOf` maps a raw value to its ladder/tier descriptor; `big` is the "loved/hated" threshold.
+ * @returns {null|{kind, id, name, img, icon, color, value, log, big, infoOf, write(value, opts)}}
  */
 function resolveSubject(kind, id) {
   if (kind === "faction") {
     const f = getFaction(id);
     if (!f) return null;
     return {
-      kind, id, name: f.name, img: f.img || null,
-      value: clamp(f.attitude), log: f.log ?? [],
-      write: (value, opts) => writeFactionAttitude(id, value, opts)
+      kind, id, name: f.name, img: null,
+      icon: f.icon || DEFAULT_FACTION_ICON, color: f.color || DEFAULT_FACTION_COLOR,
+      value: clampRep(f.reputation), log: f.log ?? [],
+      big: 10, infoOf: repInfo,
+      write: (value, opts) => writeFactionReputation(id, value, opts)
     };
   }
   const actor = game.actors.get(id);
   if (!actor) return null;
   return {
     kind: "npc", id, name: actor.name, img: actor.img,
+    icon: null, color: null,
     value: clamp(actor.getFlag(MODULE_ID, FLAG) ?? 0), log: actor.getFlag(MODULE_ID, LOG_FLAG) ?? [],
+    big: 2, infoOf: attitudeInfo,
     write: (value, opts) => writeActorAttitude(actor, value, opts)
   };
 }
@@ -146,6 +217,7 @@ function resolveSubject(kind, id) {
 
 const api = {
   ATTITUDES,
+  REPUTATIONS,
   /** Current attitude integer for an actor (0 if unset). */
   get(actor) {
     return clamp(actor?.getFlag(MODULE_ID, FLAG) ?? 0);
@@ -153,6 +225,10 @@ const api = {
   /** Descriptor {value,label,icon,color,key} for a value. */
   info(value) {
     return attitudeInfo(value);
+  },
+  /** Reputation tier descriptor {min,max,label,icon,color,key} for a faction value. */
+  repInfo(value) {
+    return repInfo(value);
   },
   /** Is this actor explicitly tracked (has a saved flag)? */
   isTracked(actor) {
@@ -177,18 +253,23 @@ const api = {
     await actor.update({ [`flags.-=${MODULE_ID}`]: null });
     Hooks.callAll(`${MODULE_ID}.attitudeChanged`, actor, 0, previous);
   },
-  /** Faction management. */
+  /** Faction management. Reputation runs −50 (Hunted) … +50 (Revered), default 0 (Ignored). */
   factions: {
     all: allFactions,
     get: getFaction,
     create: createFaction,
+    update: updateFaction,
     delete: deleteFaction,
     members: factionMembers,
-    /** Set a faction's attitude (logged; no chat). */
-    set: (id, value, opts = {}) => writeFactionAttitude(id, value, opts),
-    /** Toggle an NPC's alignment to a faction. */
-    align: toggleMembership
+    /** Set a faction's reputation (logged; no chat). */
+    set: (id, value, opts = {}) => writeFactionReputation(id, value, opts),
+    /** Replace an NPC's faction alignments. */
+    assign: (actor, ids) => actor?.setFlag(MODULE_ID, MEMBER_FLAG, [...new Set(ids)].filter((id) => !!factionStore()[id])),
+    /** Faction ids an NPC is aligned to. */
+    of: actorFactionIds
   },
+  /** Delete one timeline entry (chronological index) for an NPC or faction. */
+  deleteLogEntry,
   /** Open the tracker dashboard. */
   open() {
     return AttitudeTracker.show();
@@ -219,34 +300,35 @@ const api = {
 /*  Chat cards
 /* -------------------------------------------- */
 
-/** Reaction line key for a change (Fallout-style). */
-function reactionKey(to, from) {
+/** Reaction line key for a change (Fallout-style). `big` is the loved/hated threshold. */
+function reactionKey(to, from, big) {
   const delta = to - from;
-  if (delta >= 2) return "Loved";
-  if (delta === 1) return "Liked";
-  if (delta === -1) return "Disliked";
-  if (delta <= -2) return "Hated";
+  if (delta >= big) return "Loved";
+  if (delta > 0) return "Liked";
+  if (delta <= -big) return "Hated";
+  if (delta < 0) return "Disliked";
   return "Noted";
 }
+
+const subjectPortrait = (subject) => subject.img
+  ? `<img class="portrait" src="${esc(subject.img)}" alt="">`
+  : `<span class="portrait flag"><i class="fa-solid ${subject.icon || DEFAULT_FACTION_ICON}"></i></span>`;
 
 /**
  * The default, low-meta announcement: "Abstalar liked that!" — no ladder, no numbers.
  * The GM's reason (if any) rides along as flavor.
  */
 async function postReactionCard(subject, to, from, reason) {
-  const key = reactionKey(to, from);
+  const key = reactionKey(to, from, subject.big);
   const dir = to > from ? "up" : to < from ? "down" : "same";
   const statement = game.i18n.format(`INDIFFERENCE.React.${key}`, {
     name: `<span class="name">${esc(subject.name)}</span>`
   });
-  const portrait = subject.img
-    ? `<img class="portrait" src="${esc(subject.img)}" alt="">`
-    : `<span class="portrait flag"><i class="fa-solid fa-flag"></i></span>`;
   const reasonHtml = reason ? `<div class="reason"><i class="fa-solid fa-quote-left"></i> ${esc(reason)}</div>` : "";
 
   const content = `<div class="indifference-reaction dir-${dir}">
     <div class="head">
-      ${portrait}
+      ${subjectPortrait(subject)}
       <div class="statement">${statement}</div>
     </div>
     ${reasonHtml}
@@ -254,47 +336,53 @@ async function postReactionCard(subject, to, from, reason) {
 
   return ChatMessage.create({
     content,
-    speaker: { alias: game.i18n.localize("INDIFFERENCE.Card.Speaker") }
+    speaker: { alias: " " }
   });
 }
 
 /**
- * The detailed "disposition" card (optional, via the chat-style setting). Leads with a natural
- * sentence — "X is now Y towards the party" — with the attitude meaning, a ladder gauge, and the reason.
+ * The detailed card (optional, via the chat-style setting). NPCs get the attitude ladder gauge;
+ * factions get the reputation tier gauge.
  */
 async function postSystemCard(subject, to, from, reason) {
-  const info = attitudeInfo(to);
+  const info = subject.infoOf(to);
+  const fromInfo = subject.infoOf(from);
   const changed = to !== from;
   const dir = to > from ? "up" : to < from ? "down" : "same";
+  const isFaction = subject.kind === "faction";
 
   const nameHtml = `<span class="name">${esc(subject.name)}</span>`;
-  const attitudeHtml = `<strong class="att"><i class="fa-solid ${info.icon}"></i> ${info.label}</strong>`;
-  const statement = game.i18n.format(
-    changed ? "INDIFFERENCE.Card.StatementChanged" : "INDIFFERENCE.Card.StatementNote",
-    { name: nameHtml, attitude: attitudeHtml, party: esc(partyName()) }
-  );
+  const attitudeHtml = `<strong class="att"><i class="fa-solid ${info.icon}"></i> ${info.label}${isFaction ? ` (${signed(to)})` : ""}</strong>`;
+  const statementKey = isFaction
+    ? "INDIFFERENCE.Card.StatementFaction"
+    : changed ? "INDIFFERENCE.Card.StatementChanged" : "INDIFFERENCE.Card.StatementNote";
+  const statement = game.i18n.format(statementKey, { name: nameHtml, attitude: attitudeHtml, party: esc(partyName()) });
 
-  // Ladder gauge, −2 … +2 left to right (matches the dashboard pips), marking the new + old spots.
-  const gauge = ATTITUDES.map((a) => {
+  // Gauge left to right (worst to best), marking the new + old spots.
+  const stops = isFaction
+    ? [...REPUTATIONS].reverse().map((r) => ({ active: info === r, from: changed && fromInfo === r, color: r.color, title: `${r.label} (${r.min}…${r.max})` }))
+    : ATTITUDES.map((a) => ({ active: a.value === to, from: changed && a.value === from, color: a.color, title: `${a.label} (${signed(a.value)})` }));
+  const gauge = stops.map((s) => {
     const cls = ["pip"];
-    if (a.value === to) cls.push("to");
-    else if (changed && a.value === from) cls.push("from");
-    return `<span class="${cls.join(" ")}" style="--c:${a.color}" title="${a.label} (${signed(a.value)})"></span>`;
+    if (s.active) cls.push("to");
+    else if (s.from) cls.push("from");
+    return `<span class="${cls.join(" ")}" style="--c:${s.color}" title="${s.title}"></span>`;
   }).join("");
 
   const arrow = dir === "up" ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+  const fromText = isFaction ? `${fromInfo.label} (${signed(from)})` : fromInfo.label;
+  const toText = isFaction ? `${info.label} (${signed(to)})` : info.label;
   const delta = changed
-    ? `<span class="delta ${dir}"><i class="fa-solid ${arrow}"></i> ${attitudeInfo(from).label} <i class="fa-solid fa-arrow-right-long"></i> ${info.label}</span>`
+    ? `<span class="delta ${dir}"><i class="fa-solid ${arrow}"></i> ${fromText} <i class="fa-solid fa-arrow-right-long"></i> ${toText}</span>`
     : `<span class="delta same">${signed(to)}</span>`;
 
-  const portrait = subject.img ? `<img class="portrait" src="${esc(subject.img)}" alt="">` : "";
   const eyebrow = game.i18n.localize(changed ? "INDIFFERENCE.Card.ChangeTitle" : "INDIFFERENCE.Card.NoteTitle");
   const reasonHtml = reason ? `<div class="reason"><i class="fa-solid fa-quote-left"></i> ${esc(reason)}</div>` : "";
 
   const content = `<div class="indifference-syscard dir-${dir}" style="--att:${info.color}">
     <div class="eyebrow"><i class="fa-solid fa-scale-balanced"></i> ${eyebrow}</div>
     <div class="head">
-      ${portrait}
+      ${subjectPortrait(subject)}
       <div class="headline">
         <div class="statement">${statement}</div>
         <div class="meaning">${info.blurb}</div>
@@ -309,7 +397,7 @@ async function postSystemCard(subject, to, from, reason) {
 
   return ChatMessage.create({
     content,
-    speaker: { alias: game.i18n.localize("INDIFFERENCE.Card.Speaker") }
+    speaker: { alias: " " }
   });
 }
 
@@ -322,8 +410,38 @@ async function announceChange(subject, to, from, reason) {
 }
 
 /* -------------------------------------------- */
-/*  Set-disposition dialog
+/*  Dialogs
 /* -------------------------------------------- */
+
+/** The attitude radio ladder for NPCs. */
+function ladderBody(current) {
+  const choices = [...ATTITUDES].reverse().map((a) => `
+    <label class="ind-choice ${a.value === current ? "current" : ""}" style="--c:${a.color}">
+      <input type="radio" name="value" value="${a.value}" ${a.value === current ? "checked" : ""}>
+      <i class="fa-solid ${a.icon}"></i>
+      <span class="lbl">${a.label} <em>(${signed(a.value)})</em></span>
+      <span class="desc">${a.blurb}</span>
+    </label>`).join("");
+  return `<div class="choices">${choices}</div>`;
+}
+
+/** The reputation number input + tier legend for factions. */
+function reputationBody(current) {
+  const info = repInfo(current);
+  const legend = REPUTATIONS.map((r) => `
+    <div class="rep-tier ${r === info ? "current" : ""}" style="--c:${r.color}">
+      <i class="fa-solid ${r.icon}"></i>
+      <span class="lbl">${r.label}</span>
+      <span class="range">${r.min}…${r.max}</span>
+      <span class="desc">${r.blurb}</span>
+    </div>`).join("");
+  return `
+    <div class="rep-input-row">
+      <input type="number" name="value" min="${REP_MIN}" max="${REP_MAX}" step="1" value="${current}">
+      <span class="current-tier" style="--c:${info.color}"><i class="fa-solid ${info.icon}"></i> ${info.label}</span>
+    </div>
+    <div class="rep-legend">${legend}</div>`;
+}
 
 /**
  * The disposition-update dialog — opened from a dashboard row, the token HUD, or a sheet badge.
@@ -335,22 +453,17 @@ async function promptSayWhy(kind, id) {
   if (!subject) return;
   const current = subject.value;
   const party = esc(partyName());
-
-  const choices = [...ATTITUDES].reverse().map((a) => `
-    <label class="ind-choice ${a.value === current ? "current" : ""}" style="--c:${a.color}">
-      <input type="radio" name="attitude" value="${a.value}" ${a.value === current ? "checked" : ""}>
-      <i class="fa-solid ${a.icon}"></i>
-      <span class="lbl">${a.label} <em>(${signed(a.value)})</em></span>
-      <span class="desc">${a.blurb}</span>
-    </label>`).join("");
+  const isFaction = kind === "faction";
 
   const content = `<div class="indifference-saywhy">
     <p class="intro">${game.i18n.format("INDIFFERENCE.SayWhy.Intro", {
       name: `<strong>${esc(subject.name)}</strong>`, party
     })}</p>
 
-    <div class="field-label">${game.i18n.format("INDIFFERENCE.SayWhy.AttitudeLabel", { party })}</div>
-    <div class="choices">${choices}</div>
+    <div class="field-label">${game.i18n.format(
+      isFaction ? "INDIFFERENCE.SayWhy.ReputationLabel" : "INDIFFERENCE.SayWhy.AttitudeLabel", { party }
+    )}</div>
+    ${isFaction ? reputationBody(current) : ladderBody(current)}
 
     <label class="reason-field">
       <span class="field-label">${game.i18n.localize("INDIFFERENCE.SayWhy.ReasonLabel")}</span>
@@ -359,7 +472,7 @@ async function promptSayWhy(kind, id) {
   </div>`;
 
   const read = (announce) => (event, button) => ({
-    value: Number(button.form.elements.attitude.value),
+    value: Number(button.form.elements.value.value),
     reason: button.form.elements.reason.value.trim(),
     announce
   });
@@ -368,7 +481,7 @@ async function promptSayWhy(kind, id) {
   const result = await DialogV2.wait({
     window: { title: game.i18n.format("INDIFFERENCE.SayWhy.Title", { name: subject.name }), icon: "fa-solid fa-scale-balanced" },
     classes: ["indifference"],
-    position: { width: 420 },
+    position: { width: 440 },
     content,
     buttons: [
       {
@@ -390,10 +503,103 @@ async function promptSayWhy(kind, id) {
 
   if (!result || typeof result === "string") return; // dismissed
   const from = subject.value;
-  const to = clamp(result.value);
+  const to = isFaction ? clampRep(result.value) : clamp(result.value);
   // Log even an unchanged value when there's a reason or an announcement — it's a story beat.
   await subject.write(to, { reason: result.reason, announced: result.announce, note: !!result.reason || result.announce });
   if (result.announce) await announceChange(subject, to, from, result.reason);
+  AttitudeTracker.refresh();
+}
+
+/** Create or edit a faction: name, color, and icon. Returns the saved faction, or null. */
+async function promptFactionEdit(existing = null) {
+  const name = existing?.name ?? "";
+  const color = existing?.color ?? DEFAULT_FACTION_COLOR;
+  const icon = existing?.icon ?? DEFAULT_FACTION_ICON;
+
+  const icons = FACTION_ICONS.map((i) => `
+    <label class="icon-choice">
+      <input type="radio" name="icon" value="${i}" ${i === icon ? "checked" : ""}>
+      <i class="fa-solid ${i}"></i>
+    </label>`).join("");
+
+  const content = `<div class="indifference-faction-edit">
+    <label class="field">
+      <span class="field-label">${game.i18n.localize("INDIFFERENCE.Faction.NameLabel")}</span>
+      <input type="text" name="name" value="${esc(name)}" placeholder="${esc(game.i18n.localize("INDIFFERENCE.Faction.NamePlaceholder"))}" autofocus>
+    </label>
+    <label class="field color">
+      <span class="field-label">${game.i18n.localize("INDIFFERENCE.Faction.ColorLabel")}</span>
+      <input type="color" name="color" value="${esc(color)}">
+    </label>
+    <div class="field">
+      <span class="field-label">${game.i18n.localize("INDIFFERENCE.Faction.IconLabel")}</span>
+      <div class="icon-grid">${icons}</div>
+    </div>
+  </div>`;
+
+  const result = await foundry.applications.api.DialogV2.prompt({
+    window: {
+      title: game.i18n.localize(existing ? "INDIFFERENCE.Faction.Edit" : "INDIFFERENCE.Faction.New"),
+      icon: `fa-solid ${icon}`
+    },
+    classes: ["indifference"],
+    position: { width: 380 },
+    content,
+    ok: {
+      label: existing ? "INDIFFERENCE.Faction.Save" : "INDIFFERENCE.Faction.Create",
+      icon: "fa-solid fa-check",
+      callback: (event, button) => ({
+        name: button.form.elements.name.value.trim(),
+        color: button.form.elements.color.value,
+        icon: button.form.elements.icon.value
+      })
+    },
+    rejectClose: false
+  });
+
+  if (!result?.name) return null;
+  return existing
+    ? updateFaction(existing.id, result)
+    : createFaction(result.name, result);
+}
+
+/** Pick which factions an NPC is aligned to (checkbox list — the only place alignment changes). */
+async function promptFactionPicker(actor) {
+  if (!actor) return;
+  const factions = [...allFactions()].sort((a, b) => a.name.localeCompare(b.name));
+  if (!factions.length) {
+    ui.notifications.info(game.i18n.localize("INDIFFERENCE.Faction.NoneYet"));
+    return;
+  }
+  const assigned = new Set(actorFactionIds(actor));
+
+  const rows = factions.map((f) => `
+    <label class="pick" style="--c:${esc(f.color || DEFAULT_FACTION_COLOR)}">
+      <input type="checkbox" name="faction" value="${f.id}" ${assigned.has(f.id) ? "checked" : ""}>
+      <i class="fa-solid ${f.icon || DEFAULT_FACTION_ICON}"></i>
+      <span class="lbl">${esc(f.name)}</span>
+      <span class="tier">${repInfo(f.reputation).label}</span>
+    </label>`).join("");
+
+  const result = await foundry.applications.api.DialogV2.prompt({
+    window: { title: game.i18n.format("INDIFFERENCE.Faction.PickTitle", { name: actor.name }), icon: "fa-solid fa-flag" },
+    classes: ["indifference"],
+    position: { width: 360 },
+    content: `<div class="indifference-faction-pick">
+      <p class="intro">${game.i18n.format("INDIFFERENCE.Faction.PickIntro", { name: `<strong>${esc(actor.name)}</strong>` })}</p>
+      ${rows}
+    </div>`,
+    ok: {
+      label: "INDIFFERENCE.Faction.Save",
+      icon: "fa-solid fa-check",
+      callback: (event, button) =>
+        [...button.form.querySelectorAll("input[name='faction']:checked")].map((el) => el.value)
+    },
+    rejectClose: false
+  });
+
+  if (!Array.isArray(result)) return; // dismissed
+  await actor.setFlag(MODULE_ID, MEMBER_FLAG, result);
   AttitudeTracker.refresh();
 }
 
@@ -448,8 +654,10 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
       clear: AttitudeTracker._onClear,
       setView: AttitudeTracker._onSetView,
       addFaction: AttitudeTracker._onAddFaction,
+      editFaction: AttitudeTracker._onEditFaction,
       deleteFaction: AttitudeTracker._onDeleteFaction,
-      toggleMember: AttitudeTracker._onToggleMember,
+      editFactions: AttitudeTracker._onEditFactions,
+      deleteEntry: AttitudeTracker._onDeleteEntry,
       pinHotbar: AttitudeTracker._onPinHotbar
     }
   };
@@ -458,16 +666,22 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     body: { template: `modules/${MODULE_ID}/templates/tracker.hbs` }
   };
 
-  /** Format one history entry for the timeline. */
-  _entry(e) {
-    const from = attitudeInfo(e.from);
-    const to = attitudeInfo(e.to);
+  /** Format one history entry for the timeline. `idx` is its chronological (stored) index. */
+  _entry(e, idx, subject) {
+    const from = subject.infoOf(e.from);
+    const to = subject.infoOf(e.to);
     const when = new Date(e.t);
+    const isFaction = subject.kind === "faction";
     return {
+      idx,
       when: when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
       whenFull: when.toLocaleString(),
-      fromIcon: from.icon, fromColor: from.color, fromLabel: from.label,
-      toIcon: to.icon, toColor: to.color, toLabel: to.label,
+      fromIcon: from.icon, fromColor: from.color,
+      toIcon: to.icon, toColor: to.color,
+      fromText: isFaction ? `${from.label} (${signed(e.from)})` : from.label,
+      toText: isFaction ? `${to.label} (${signed(e.to)})` : to.label,
+      fromNum: isFaction ? signed(e.from) : null,
+      toNum: isFaction ? signed(e.to) : null,
       changed: e.from !== e.to,
       dir: e.to > e.from ? "up" : e.to < e.from ? "down" : "same",
       reason: e.reason ?? "",
@@ -478,27 +692,29 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Build one display row for an NPC or faction subject. */
   _row(subject, extra = {}) {
     const value = subject.value;
-    const info = attitudeInfo(value);
+    const info = subject.infoOf(value);
     const key = `${subject.kind}:${subject.id}`;
     const expanded = this._expanded.has(key);
-    const row = {
+    return {
       kind: subject.kind,
       isNpc: subject.kind === "npc",
       id: subject.id,
       key,
       name: subject.name,
       img: subject.img,
+      factionIcon: subject.icon,
+      factionColor: subject.color,
+      value,
       signed: signed(value),
       label: info.label,
       icon: info.icon,
       color: info.color,
-      isMin: value <= -2,
-      isMax: value >= 2,
+      isMin: subject.kind === "faction" ? value <= REP_MIN : value <= -2,
+      isMax: subject.kind === "faction" ? value >= REP_MAX : value >= 2,
       expanded,
-      entries: expanded ? subject.log.map((e) => this._entry(e)).reverse() : [],
+      entries: expanded ? subject.log.map((e, i) => this._entry(e, i, subject)).reverse() : [],
       ...extra
     };
-    return row;
   }
 
   _npcRow(actor) {
@@ -506,8 +722,15 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     const row = this._row(subject, { tracked: api.isTracked(actor) });
     row.scale = ATTITUDES.map((a) => ({ ...a, active: a.value === subject.value }));
     if (row.expanded) {
-      const memberOf = new Set(actorFactionIds(actor));
-      row.chips = allFactions().map((f) => ({ id: f.id, name: f.name, active: memberOf.has(f.id) }));
+      row.chips = actorFactionIds(actor)
+        .map(getFaction)
+        .filter(Boolean)
+        .map((f) => ({
+          name: f.name,
+          icon: f.icon || DEFAULT_FACTION_ICON,
+          color: f.color || DEFAULT_FACTION_COLOR,
+          tier: repInfo(f.reputation).label
+        }));
     }
     return row;
   }
@@ -516,7 +739,6 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     const subject = resolveSubject("faction", faction.id);
     const members = factionMembers(faction.id);
     const row = this._row(subject, { tracked: true, memberCount: members.length });
-    row.scale = ATTITUDES.map((a) => ({ ...a, active: a.value === subject.value }));
     if (row.expanded) row.members = members.map((a) => ({ id: a.id, name: a.name }));
     return row;
   }
@@ -580,7 +802,7 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
-  /** Portrait drag-to-canvas, plus the faction-filter <select> (actions only cover clicks). */
+  /** Portrait drag-to-canvas, the faction filter, and reputation number inputs (non-click events). */
   _onRender(context, options) {
     super._onRender?.(context, options);
     for (const img of this.element.querySelectorAll(".portrait[data-actor-id]")) {
@@ -593,6 +815,13 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
       this._factionFilter = event.currentTarget.value;
       this.render();
     });
+    for (const input of this.element.querySelectorAll(".rep-input")) {
+      input.addEventListener("change", async (event) => {
+        const subject = AttitudeTracker._subjectFor(event.currentTarget);
+        if (subject) await subject.write(Number(event.currentTarget.value));
+        this.render();
+      });
+    }
   }
 
   /** The row's subject, from the [data-kind]/[data-id] on the enclosing <li>. */
@@ -646,20 +875,14 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async _onAddFaction() {
-    const DialogV2 = foundry.applications.api.DialogV2;
-    const name = await DialogV2.prompt({
-      window: { title: game.i18n.localize("INDIFFERENCE.Faction.New"), icon: "fa-solid fa-flag" },
-      classes: ["indifference"],
-      content: `<input type="text" name="name" placeholder="${esc(game.i18n.localize("INDIFFERENCE.Faction.NamePlaceholder"))}" autofocus>`,
-      ok: {
-        label: "INDIFFERENCE.Faction.Create",
-        icon: "fa-solid fa-flag",
-        callback: (event, button) => button.form.elements.name.value.trim()
-      },
-      rejectClose: false
-    });
-    if (!name) return;
-    await createFaction(name);
+    await promptFactionEdit(null);
+    AttitudeTracker.refresh();
+  }
+
+  static async _onEditFaction(event, target) {
+    const faction = getFaction(target.closest("[data-id]")?.dataset.id);
+    if (!faction) return;
+    await promptFactionEdit(faction);
     AttitudeTracker.refresh();
   }
 
@@ -677,9 +900,14 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     AttitudeTracker.refresh();
   }
 
-  static async _onToggleMember(event, target) {
-    const actorId = target.closest("[data-kind='npc'][data-id]")?.dataset.id;
-    await toggleMembership(game.actors.get(actorId), target.dataset.factionId);
+  static async _onEditFactions(event, target) {
+    await promptFactionPicker(game.actors.get(target.closest("[data-id]")?.dataset.id));
+  }
+
+  static async _onDeleteEntry(event, target) {
+    const row = target.closest("[data-kind][data-id]");
+    if (!row) return;
+    await deleteLogEntry(row.dataset.kind, row.dataset.id, Number(target.dataset.index));
     AttitudeTracker.refresh();
   }
 
@@ -707,28 +935,22 @@ function buildSheetBadge(app) {
   const badge = document.createElement("div");
   badge.className = "indifference-sheet-badge";
 
-  const npcTip = game.i18n.format("INDIFFERENCE.Badge.NpcTip", {
-    name: actor.name, attitude: `${info.label} (${signed(value)})`
-  });
-  const buttons = [
+  const pills = [
     `<button type="button" class="who" data-kind="npc" data-id="${actor.id}" style="--c:${info.color}"
-             data-tooltip="${esc(npcTip)}">
-       <i class="fa-solid ${info.icon}"></i>
+             data-tooltip="${esc(game.i18n.format("INDIFFERENCE.Badge.NpcTip", { name: actor.name, attitude: info.label }))}">
+       <i class="fa-solid ${info.icon}"></i><span class="txt">${info.label}</span>
      </button>`
   ];
   for (const f of factions) {
-    const fInfo = attitudeInfo(f.attitude);
-    const tip = game.i18n.format("INDIFFERENCE.Badge.FactionTip", {
-      name: f.name, attitude: `${fInfo.label} (${signed(clamp(f.attitude))})`
-    });
-    buttons.push(
-      `<button type="button" class="who faction" data-kind="faction" data-id="${f.id}" style="--c:${fInfo.color}"
-               data-tooltip="${esc(tip)}">
-         <i class="fa-solid ${fInfo.icon}"></i><i class="fa-solid fa-flag tag"></i>
+    const tier = repInfo(f.reputation);
+    pills.push(
+      `<button type="button" class="who faction" data-kind="faction" data-id="${f.id}" style="--c:${esc(f.color || DEFAULT_FACTION_COLOR)}"
+               data-tooltip="${esc(game.i18n.format("INDIFFERENCE.Badge.FactionTip", { name: f.name, attitude: `${tier.label} (${signed(clampRep(f.reputation))})` }))}">
+         <i class="fa-solid ${f.icon || DEFAULT_FACTION_ICON}"></i><span class="txt">${esc(f.name)} · ${tier.label}</span>
        </button>`
     );
   }
-  badge.innerHTML = buttons.join("");
+  badge.innerHTML = pills.join("");
 
   for (const btn of badge.querySelectorAll("button.who")) {
     btn.addEventListener("click", (event) => {
@@ -789,9 +1011,10 @@ Hooks.once("init", () => {
   });
 });
 
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
   game.modules.get(MODULE_ID).api = api;
   globalThis.indifference = api;
+  if (game.user.isGM) await migrateFactions();
   // Window Controls Next only manages document sheets unless standalone AppV2 windows opt in.
   game.modules.get("window-controls-next")?.api?.registerApp?.(AttitudeTracker);
   console.log(`${MODULE_ID} | ready — game.modules.get("${MODULE_ID}").api`);

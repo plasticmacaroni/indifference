@@ -200,9 +200,19 @@
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: var(--att-color, #7f8c8d);
-  background: color-mix(in srgb, var(--att-color, #7f8c8d) 14%, transparent);
+  color: var(--fc, var(--att-color, #7f8c8d));
+  background: color-mix(in srgb, var(--fc, var(--att-color, #7f8c8d)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fc, var(--att-color, #7f8c8d)) 45%, transparent);
   cursor: default;
+}
+
+.indifference-row .stepper .rep-input {
+  width: 48px;
+  height: 22px;
+  padding: 0 2px;
+  text-align: center;
+  font-size: var(--font-size-12, 12px);
+  font-variant-numeric: tabular-nums;
 }
 
 .indifference-row .info {
@@ -286,11 +296,23 @@
   opacity: 1;
 }
 
-.indifference-row .chip.active {
+/* Assigned-faction chips are display-only — editing happens in the picker dialog. */
+.indifference-row .chip.static {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
   opacity: 1;
-  border-color: var(--att-color, #7f8c8d);
-  background: color-mix(in srgb, var(--att-color, #7f8c8d) 14%, transparent);
-  font-weight: 600;
+  border-color: color-mix(in srgb, var(--fc, #7f8c8d) 60%, transparent);
+  background: color-mix(in srgb, var(--fc, #7f8c8d) 14%, transparent);
+}
+
+.indifference-row .chip.static i {
+  color: var(--fc, #7f8c8d);
+}
+
+.indifference-row .chip.edit-chips {
+  border-style: dashed;
 }
 
 .indifference-row .timeline {
@@ -339,6 +361,38 @@
 .indifference-row .timeline .silent {
   font-size: 10px;
   opacity: 0.45;
+}
+
+.indifference-row .timeline .num {
+  font-size: var(--font-size-11, 11px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.indifference-row .timeline .entry-delete {
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: auto;
+  line-height: 1;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.indifference-row .timeline .entry:hover .entry-delete {
+  opacity: 0.5;
+}
+
+.indifference-row .timeline .entry .entry-delete:hover {
+  opacity: 1;
+  color: #b03a2e;
 }
 
 .indifference-row .timeline .why {
@@ -431,6 +485,7 @@
 }
 
 .indifference-row .saywhy,
+.indifference-row .edit,
 .indifference-row .clear {
   flex: 0 0 auto;
   box-sizing: border-box;
@@ -448,6 +503,7 @@
 }
 
 .indifference-row .saywhy:hover,
+.indifference-row .edit:hover,
 .indifference-row .clear:hover {
   opacity: 1;
 }
@@ -532,6 +588,160 @@
   gap: 4px;
 }
 
+/* Faction variant: reputation number + tier legend. */
+.indifference-saywhy .rep-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.indifference-saywhy .rep-input-row input {
+  width: 70px;
+  text-align: center;
+  font-size: var(--font-size-14, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+.indifference-saywhy .rep-input-row .current-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--c, inherit);
+}
+
+.indifference-saywhy .rep-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.indifference-saywhy .rep-tier {
+  display: grid;
+  grid-template-columns: 16px 64px 52px 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border-left: 3px solid var(--c, transparent);
+  font-size: var(--font-size-12, 12px);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.indifference-saywhy .rep-tier.current {
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  font-weight: 600;
+}
+
+.indifference-saywhy .rep-tier > i {
+  color: var(--c, inherit);
+}
+
+.indifference-saywhy .rep-tier .range {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.indifference-saywhy .rep-tier .desc {
+  opacity: 0.7;
+  text-align: right;
+}
+
+/* ---- Faction create/edit dialog ---- */
+.indifference-faction-edit .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.indifference-faction-edit .field.color input {
+  width: 60px;
+  height: 28px;
+  padding: 1px;
+}
+
+.indifference-faction-edit .field-label {
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  opacity: 0.7;
+}
+
+.indifference-faction-edit .icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.indifference-faction-edit .icon-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.indifference-faction-edit .icon-choice:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.indifference-faction-edit .icon-choice input {
+  display: none;
+}
+
+.indifference-faction-edit .icon-choice:has(input:checked) {
+  opacity: 1;
+  border-color: var(--color-text-dark-primary, #191813);
+  background: rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 0 0 1px var(--color-text-dark-primary, #191813);
+}
+
+/* ---- NPC faction picker dialog ---- */
+.indifference-faction-pick .intro {
+  margin: 0 0 10px;
+  font-size: var(--font-size-13, 13px);
+  opacity: 0.9;
+}
+
+.indifference-faction-pick .pick {
+  display: grid;
+  grid-template-columns: auto 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  margin-bottom: 3px;
+  border-radius: 5px;
+  border-left: 3px solid var(--c, transparent);
+  background: rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+}
+
+.indifference-faction-pick .pick:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.indifference-faction-pick .pick i {
+  color: var(--c, inherit);
+}
+
+.indifference-faction-pick .pick .lbl {
+  font-weight: 600;
+}
+
+.indifference-faction-pick .pick .tier {
+  font-size: var(--font-size-11, 11px);
+  opacity: 0.65;
+}
+
 .indifference-saywhy textarea {
   width: 100%;
   resize: vertical;
@@ -582,6 +792,15 @@
   border-radius: 6px;
   object-fit: cover;
   box-shadow: 0 0 6px color-mix(in srgb, var(--att) 40%, transparent);
+}
+
+.indifference-syscard .head .portrait.flag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--att);
+  background: color-mix(in srgb, var(--att) 14%, transparent);
 }
 
 .indifference-syscard .statement {
@@ -785,14 +1004,17 @@
   opacity: 0.5;
 }
 
-/* ---- NPC sheet badge (bottom-left): NPC + faction attitudes ---- */
+/* ---- NPC sheet badge (bottom-left): NPC attitude + faction reputation pills ---- */
 .indifference-sheet-badge {
   position: absolute;
   left: 8px;
   bottom: 8px;
   z-index: 30;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+  max-width: 70%;
   pointer-events: none;
 }
 
@@ -801,30 +1023,37 @@
   appearance: none;
   min-width: 0;
   min-height: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  width: auto;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 10px;
   margin: 0;
-  line-height: 1;
-  position: relative;
-  border-radius: 50%;
-  border: 2px solid var(--c, #7f8c8d);
+  line-height: 1.2;
+  border-radius: 999px;
+  border: 1px solid var(--c, #7f8c8d);
   background: rgba(20, 20, 20, 0.78);
   color: var(--c, #7f8c8d);
-  font-size: 15px;
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
-.indifference-sheet-badge .who:hover {
-  box-shadow: 0 0 8px var(--c, #7f8c8d);
+.indifference-sheet-badge .who i {
+  font-size: 13px;
+  line-height: 1;
 }
 
-.indifference-sheet-badge .who .tag {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  font-size: 9px;
-  color: var(--c, #7f8c8d);
-  text-shadow: 0 0 3px #000;
+.indifference-sheet-badge .who .txt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.indifference-sheet-badge .who:hover {
+  box-shadow: 0 0 8px var(--c, #7f8c8d);
 }

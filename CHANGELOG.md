@@ -3,6 +3,27 @@
 All notable changes to **Indifference** are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/). At least I hope it does. 
 
+## [0.3.0] — Unreleased
+
+### Added
+- **Faction reputation**: factions now track the PF2e reputation scale, −50 (Hunted) … +50 (Revered),
+  default 0 (Ignored), with the GM Core tiers (Revered/Admired/Liked/Ignored/Disliked/Hated/Hunted).
+  Rows get ± steppers and a direct number input; the say-why dialog shows a tier legend.
+  Existing 0.2.0 faction attitudes migrate automatically (×10).
+- **Faction colors and icons**: create/edit dialog (pencil button on faction rows) with a name field,
+  color picker, and a 16-icon set. Colors/icons show on rows, chips, sheet pills, and chat cards.
+- **Faction picker modal**: an expanded NPC row now shows only its *assigned* factions as read-only
+  chips, plus an Edit button that opens a checkbox picker — no more accidental chip clicks
+  toggling membership.
+- **Deletable log entries**: hover a timeline entry to reveal an × that removes it from the log.
+
+### Changed
+- Chat cards no longer carry the "Disposition" speaker title (the alias is blank now).
+- The NPC sheet badge is a proper centered pill showing the attitude text ("Friendly"), with one
+  pill per aligned faction showing its name and reputation tier.
+- API: `factions.set` takes a reputation value; `factions.align` replaced by `factions.assign`
+  (replace-all) and `factions.of`; added `repInfo`, `REPUTATIONS`, `deleteLogEntry`.
+
 ## [0.2.0] — Unreleased
 
 ### Added

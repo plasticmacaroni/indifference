@@ -68,15 +68,32 @@ improvising" is always there.
 
 ## Factions
 
-Create factions with the flag button in the tracker toolbar. A faction works just like an NPC row —
-its own attitude, timeline, say-why dialog, and chat announcements — and lives in its own group above
-the scene NPCs. Expand an NPC and click faction chips to align it; use the toolbar dropdown to filter
-the NPC list to one faction's members, or the view menu to look at only NPCs / only factions.
+Create factions with the flag button in the tracker toolbar — pick a name, a color, and an icon
+(editable later via the pencil button on the faction's row). Factions track the party's
+**reputation** on the PF2e scale, **−50 (Hunted) … +50 (Revered)**, defaulting to 0 (Ignored):
+
+| Reputation | Tier |
+| ---------: | ---- |
+| 30 to 50 | Revered |
+| 15 to 29 | Admired |
+| 5 to 14 | Liked |
+| −4 to 4 | Ignored |
+| −5 to −14 | Disliked |
+| −15 to −29 | Hated |
+| −30 to −50 | Hunted |
+
+Faction rows work like NPC rows — timeline, say-why dialog (with a tier legend), chat
+announcements — with ± steppers and a direct number input. Expanding an NPC shows the factions it's
+**assigned to** (read-only chips) and an **Edit** button that opens a checkbox picker to change them —
+membership never changes from a stray click. Use the toolbar dropdown to filter NPCs to one faction's
+members, or the view menu to see only NPCs / only factions.
+
+Timeline entries (NPC or faction) can be deleted: hover one and click the ×.
 
 ## Other entry points
 
-- **NPC sheets** get a small badge at the bottom-left: the NPC's attitude face plus one flagged face
-  per aligned faction. Click any of them to view/update right from the sheet (GM only).
+- **NPC sheets** get pills at the bottom-left: the NPC's attitude ("Friendly") plus one pill per
+  aligned faction ("Hellknights · Liked"). Click any pill to view/update right from the sheet (GM only).
 - The **token HUD** shows a single attitude face; click it to unfold the +/−/say-why controls.
 - The **thumbtack** button in the tracker toolbar drops an "open the tracker" macro onto your hotbar
   (also `indifference.addHotbarButton()`).
@@ -94,8 +111,8 @@ actor.getFlag("indifference", "factions"); // ids of factions this NPC is aligne
 ```
 
 Factions live in the world setting `indifference.factions` as
-`{id: {id, name, img, attitude, log}}` — they're plain categorizations with 0–∞ members, no actor
-documents involved.
+`{id: {id, name, color, icon, reputation, log}}` — they're plain categorizations with 0–∞ members,
+no actor documents involved. Reputation is clamped to −50…+50.
 
 It is always stored on the canonical directory actor (`token.baseActor`), regardless of
 whether a token is linked or unlinked. My goal is to make it persistent regardless of how you're adding stuff to the scene. 
@@ -116,12 +133,16 @@ indifference.open();              // -> open the dashboard
 indifference.addHotbarButton();   // -> macro on your hotbar that opens the dashboard
 indifference.ATTITUDES;           // -> the full ladder
 
-indifference.factions.all();              // -> [{id, name, img, attitude, log}]
-indifference.factions.create("Hellknights");
-indifference.factions.set(id, -1, { reason: "We burned the chapterhouse." });
-indifference.factions.align(actor, id);   // toggle membership
+indifference.factions.all();              // -> [{id, name, color, icon, reputation, log}]
+indifference.factions.create("Hellknights", { color: "#aa0000", icon: "fa-shield-halved" });
+indifference.factions.update(id, { name, color, icon });
+indifference.factions.set(id, -15, { reason: "We burned the chapterhouse." });
+indifference.factions.assign(actor, [id1, id2]); // replace an NPC's alignments
+indifference.factions.of(actor);          // -> faction ids the NPC is aligned to
 indifference.factions.members(id);        // -> member actors
 indifference.factions.delete(id);
+indifference.repInfo(-20);                // -> { min, max, key, label, icon, color } (Hated)
+indifference.deleteLogEntry("npc", actorId, 0); // drop a timeline entry by chronological index
 ```
 
 A hook fires on every change so other modules/macros can react:
