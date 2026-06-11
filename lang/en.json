@@ -27,6 +27,8 @@
   "INDIFFERENCE.Faction.IconLabel": "Icon",
   "INDIFFERENCE.Faction.Create": "Create faction",
   "INDIFFERENCE.Faction.Save": "Save",
+  "INDIFFERENCE.Faction.Reset": "Reset faction (reputation to 0, history cleared)",
+  "INDIFFERENCE.Faction.ResetConfirm": "Reset {name}? Reputation returns to 0 (Ignored) and its whole timeline is erased.",
   "INDIFFERENCE.Faction.Delete": "Delete faction",
   "INDIFFERENCE.Faction.DeleteConfirm": "Delete {name}? Its reputation and timeline are removed. NPC alignments to it are forgotten.",
   "INDIFFERENCE.Faction.Members": "Members",

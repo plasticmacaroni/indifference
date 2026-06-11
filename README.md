@@ -66,6 +66,13 @@ date/time, the old → new faces, the GM's reason, and an eye-slash on anything 
 announced to players. Quick steps are logged too, so the backlog of "what shifted while I was
 improvising" is always there.
 
+Timestamps use the **PF2e World Clock** when it's set up — entries read like
+"2 Abadius 4725 AR · 13:30" in your world's date theme, with the full Golarion date and the
+real-world time in the tooltip. Without the World Clock they fall back to real-world time.
+
+The ↺ button resets an NPC (back to untracked) or a faction (reputation to 0, after a confirm) —
+either way the whole timeline is cleared.
+
 ## Factions
 
 Create factions with the flag button in the tracker toolbar — pick a name, a color, and an icon

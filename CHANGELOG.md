@@ -3,6 +3,16 @@
 All notable changes to **Indifference** are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/). At least I hope it does. 
 
+## [0.4.0] — Unreleased
+
+### Added
+- **Game-time timestamps**: new timeline entries are stamped with the PF2e World Clock time and
+  display in your world's calendar theme (e.g. "2 Abadius 4725 AR · 13:30", full Golarion date in
+  the tooltip alongside the real-world time). Falls back to real-world time when the World Clock
+  isn't available — and for entries logged before this version.
+- **Faction reset button** (↺ on faction rows, next to edit/delete): after a confirm, reputation
+  returns to 0 (Ignored) and the faction's whole timeline is erased. Also `indifference.factions.reset(id)`.
+
 ## [0.3.0] — Unreleased
 
 ### Added

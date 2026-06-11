@@ -66,6 +66,52 @@ const partyName = () => game.actors?.party?.name || game.i18n.localize("INDIFFER
 /** Append a change entry to a log array, capped at MAX_LOG (oldest dropped). */
 const appendLog = (log, entry) => [...(Array.isArray(log) ? log : []), entry].slice(-MAX_LOG);
 
+/** A new log entry stamped with both real time and (for the PF2e World Clock) game world time. */
+const makeLogEntry = (from, to, reason, announced) =>
+  ({ t: Date.now(), wt: game.time?.worldTime ?? null, from, to, reason, announced });
+
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
+
+/**
+ * Format a stored world-time (seconds) through the PF2e World Clock's calendar and theme
+ * (Absalom Reckoning by default). Mirrors the system's own WorldClock getters, but for an
+ * arbitrary moment instead of "now". Returns {short, long} or null if the clock is unavailable.
+ */
+function golarionTimestamp(wt) {
+  try {
+    const clock = game.pf2e?.worldClock;
+    const cfg = CONFIG.PF2E?.worldClock;
+    if (typeof wt !== "number" || !clock || !cfg) return null;
+    const dt = clock.worldCreatedOn?.plus?.({ seconds: wt });
+    if (!dt?.isValid) return null;
+
+    const theme = clock.dateTheme; // AR | IC | AD | CE | AG
+    const time = clock.timeConvention === 24 ? dt.toFormat("HH:mm") : dt.toFormat("h:mm a");
+    if (theme === "CE") {
+      return {
+        short: `${dt.toLocaleString({ year: "numeric", month: "short", day: "numeric" })} · ${time}`,
+        long: `${dt.toLocaleString({ dateStyle: "full" })} ${time}`
+      };
+    }
+    const year = dt.year + (cfg[theme]?.yearOffset ?? 0);
+    const en = dt.setLocale("en-US");
+    const month = theme === "AD" ? dt.monthLong : game.i18n.localize(cfg.AR.Months[en.monthLong]);
+    const weekday = theme === "AD" ? dt.weekdayLong
+      : game.i18n.localize((theme === "AG" ? cfg.AG.Weekdays : cfg.AR.Weekdays)[en.weekdayLong]);
+    const era = theme === "AD" ? dt.toFormat("G") : game.i18n.localize(cfg[theme]?.Era ?? "");
+    const long = game.i18n.format(cfg.Date, { era, year, month, day: ordinal(dt.day), weekday });
+    return {
+      short: `${dt.day} ${month} ${year}${era ? ` ${era}` : ""} · ${time}`,
+      long: `${long} (${time})`
+    };
+  } catch {
+    return null;
+  }
+}
+
 /* -------------------------------------------- */
 /*  Factions (world-setting store)
 /* -------------------------------------------- */
@@ -147,7 +193,7 @@ async function writeActorAttitude(actor, value, { reason = "", announced = false
     Hooks.callAll(`${MODULE_ID}.attitudeChanged`, actor, next, previous);
     return next;
   }
-  const log = appendLog(actor.getFlag(MODULE_ID, LOG_FLAG), { t: Date.now(), from: previous, to: next, reason, announced });
+  const log = appendLog(actor.getFlag(MODULE_ID, LOG_FLAG), makeLogEntry(previous, next, reason, announced));
   await actor.update({ [`flags.${MODULE_ID}.${FLAG}`]: next, [`flags.${MODULE_ID}.${LOG_FLAG}`]: log });
   Hooks.callAll(`${MODULE_ID}.attitudeChanged`, actor, next, previous);
   return next;
@@ -161,9 +207,19 @@ async function writeFactionReputation(id, value, { reason = "", announced = fals
   const next = clampRep(value);
   if (next === previous && !note) return next;
   faction.reputation = next;
-  faction.log = appendLog(faction.log, { t: Date.now(), from: previous, to: next, reason, announced });
+  faction.log = appendLog(faction.log, makeLogEntry(previous, next, reason, announced));
   await saveFactions(store);
   return next;
+}
+
+/** Reset a faction: reputation back to 0 (Ignored) and the whole timeline erased. */
+async function resetFaction(id) {
+  const store = foundry.utils.deepClone(factionStore());
+  const faction = store[id];
+  if (!faction) return;
+  faction.reputation = 0;
+  faction.log = [];
+  await saveFactions(store);
 }
 
 /** Remove one history entry by its index in the stored (chronological) log. */
@@ -260,6 +316,8 @@ const api = {
     create: createFaction,
     update: updateFaction,
     delete: deleteFaction,
+    /** Reset reputation to 0 and erase the faction's timeline. */
+    reset: resetFaction,
     members: factionMembers,
     /** Set a faction's reputation (logged; no chat). */
     set: (id, value, opts = {}) => writeFactionReputation(id, value, opts),
@@ -655,6 +713,7 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
       setView: AttitudeTracker._onSetView,
       addFaction: AttitudeTracker._onAddFaction,
       editFaction: AttitudeTracker._onEditFaction,
+      resetFaction: AttitudeTracker._onResetFaction,
       deleteFaction: AttitudeTracker._onDeleteFaction,
       editFactions: AttitudeTracker._onEditFactions,
       deleteEntry: AttitudeTracker._onDeleteEntry,
@@ -670,12 +729,13 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   _entry(e, idx, subject) {
     const from = subject.infoOf(e.from);
     const to = subject.infoOf(e.to);
-    const when = new Date(e.t);
+    const real = new Date(e.t);
+    const golarion = golarionTimestamp(e.wt);
     const isFaction = subject.kind === "faction";
     return {
       idx,
-      when: when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
-      whenFull: when.toLocaleString(),
+      when: golarion?.short ?? real.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
+      whenFull: golarion ? `${golarion.long} — ${real.toLocaleString()}` : real.toLocaleString(),
       fromIcon: from.icon, fromColor: from.color,
       toIcon: to.icon, toColor: to.color,
       fromText: isFaction ? `${from.label} (${signed(e.from)})` : from.label,
@@ -883,6 +943,19 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
     const faction = getFaction(target.closest("[data-id]")?.dataset.id);
     if (!faction) return;
     await promptFactionEdit(faction);
+    AttitudeTracker.refresh();
+  }
+
+  static async _onResetFaction(event, target) {
+    const faction = getFaction(target.closest("[data-id]")?.dataset.id);
+    if (!faction) return;
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("INDIFFERENCE.Faction.Reset") },
+      content: `<p>${game.i18n.format("INDIFFERENCE.Faction.ResetConfirm", { name: esc(faction.name) })}</p>`,
+      rejectClose: false
+    });
+    if (!confirmed) return;
+    await resetFaction(faction.id);
     AttitudeTracker.refresh();
   }
 
