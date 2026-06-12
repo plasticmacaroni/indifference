@@ -3,6 +3,14 @@
 All notable changes to **Indifference** are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/). At least I hope it does. 
 
+## [0.4.1] — Unreleased
+
+### Fixed
+- `TypeError: Cannot read properties of null (reading 'focus')` from core's `bringToFront` when the
+  tracker window's element was detached from the document (e.g. stashed by Window Controls Next's
+  taskbar) and then force-rendered. The tracker now skips focusing while detached and rebuilds the
+  window cleanly when reopened from a stashed state.
+
 ## [0.4.0] — Unreleased
 
 ### Added

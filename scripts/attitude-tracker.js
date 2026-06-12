@@ -683,13 +683,29 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   _expanded = new Set();
 
   static show() {
-    AttitudeTracker._instance ??= new AttitudeTracker();
-    AttitudeTracker._instance.render({ force: true });
-    return AttitudeTracker._instance;
+    const app = AttitudeTracker._instance ??= new AttitudeTracker();
+    if (app.rendered && !app.element?.isConnected) {
+      // A window manager (e.g. Window Controls Next's taskbar) stashed our element outside the
+      // document. Rendering into it would leave an invisible window — rebuild from scratch.
+      app.close({ animate: false }).catch(() => null).then(() => app.render({ force: true }));
+    } else {
+      app.render({ force: true });
+    }
+    return app;
   }
 
   static refresh() {
-    if (AttitudeTracker._instance?.rendered) AttitudeTracker._instance.render();
+    const app = AttitudeTracker._instance;
+    if (app?.rendered && app.element?.isConnected) app.render();
+  }
+
+  /**
+   * Core's bringToFront focuses element.ownerDocument.defaultView without a null check, which
+   * throws if the element is detached (window managers do this when stashing windows). Skip it.
+   */
+  bringToFront() {
+    if (!this.element?.isConnected) return;
+    return super.bringToFront();
   }
 
   static DEFAULT_OPTIONS = {
