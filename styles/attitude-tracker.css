@@ -1022,18 +1022,27 @@
   opacity: 0.5;
 }
 
-/* ---- NPC sheet badge (bottom-left): NPC attitude + faction reputation pills ---- */
+/* ---- NPC sheet badge: attitude + faction reputation pills ----
+   Hangs just below the window's bottom-left edge (windows have overflow: visible),
+   so it never covers sheet content. */
 .indifference-sheet-badge {
   position: absolute;
   left: 8px;
-  bottom: 8px;
+  top: 100%;
+  margin-top: 4px;
   z-index: 30;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  max-width: 70%;
+  max-width: 90%;
   pointer-events: none;
+}
+
+/* No dangling pills under a minimized title bar. */
+.app.minimized .indifference-sheet-badge,
+.application.minimized .indifference-sheet-badge {
+  display: none;
 }
 
 .indifference-sheet-badge .who {
