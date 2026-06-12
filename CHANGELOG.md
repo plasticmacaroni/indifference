@@ -3,6 +3,18 @@
 All notable changes to **Indifference** are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/). At least I hope it does. 
 
+## [0.4.3] — Unreleased
+
+### Fixed
+- **Opening the tracker froze the browser** (0.4.2 regression): core calls `bringToFront` mid-render
+  before the element is attached, which 0.4.2 misread as a dead frame and answered with an endless
+  close→render rebuild loop. The dead-frame check now only looks at the element's window
+  (`defaultView`), `bringToFront` never rebuilds, and rebuilds happen solely from the tracker button.
+  Verified live in a headless Foundry 14.364 + pf2e 8.2.0 world: open, re-open, close/reopen,
+  dead pop-out recovery, and taskbar-stash recovery all clean with zero console errors.
+- Pressing the tracker button now also un-stashes the window if Window Controls Next hid it to its
+  taskbar (previously it re-rendered invisibly into the hidden element).
+
 ## [0.4.2] — Unreleased
 
 ### Fixed
