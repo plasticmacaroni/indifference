@@ -682,30 +682,49 @@ class AttitudeTracker extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Expanded timeline rows, as "kind:id" keys. */
   _expanded = new Set();
 
+  /** Guards against re-entrant dead-frame rebuilds from bringToFront. */
+  _rebuilding = false;
+
+  /**
+   * Is the window frame usable? False when the element is stashed outside the document
+   * (Window Controls Next taskbar) or lives in a closed pop-out window's dead document —
+   * core's bringToFront would throw focusing the latter (defaultView is null).
+   */
+  get _frameAlive() {
+    const view = this.element?.ownerDocument?.defaultView;
+    return !!(this.element?.isConnected && view && !view.closed);
+  }
+
+  /** Close the dead/stashed frame and re-render fresh in the main window. */
+  _rebuildFrame() {
+    if (this._rebuilding) return;
+    this._rebuilding = true;
+    this.close({ animate: false }).catch(() => null).then(() => {
+      this._rebuilding = false;
+      this.render({ force: true });
+    });
+  }
+
   static show() {
     const app = AttitudeTracker._instance ??= new AttitudeTracker();
-    if (app.rendered && !app.element?.isConnected) {
-      // A window manager (e.g. Window Controls Next's taskbar) stashed our element outside the
-      // document. Rendering into it would leave an invisible window — rebuild from scratch.
-      app.close({ animate: false }).catch(() => null).then(() => app.render({ force: true }));
-    } else {
-      app.render({ force: true });
-    }
+    if (app.rendered && !app._frameAlive) app._rebuildFrame();
+    else app.render({ force: true });
     return app;
   }
 
   static refresh() {
     const app = AttitudeTracker._instance;
-    if (app?.rendered && app.element?.isConnected) app.render();
+    if (app?.rendered && app._frameAlive) app.render();
   }
 
   /**
-   * Core's bringToFront focuses element.ownerDocument.defaultView without a null check, which
-   * throws if the element is detached (window managers do this when stashing windows). Skip it.
+   * Core's bringToFront focuses element.ownerDocument.defaultView without a null check (v14
+   * 31405), throwing for closed pop-outs; window managers' restore paths call it directly.
+   * When the frame is dead, rebuild the window in the main document instead.
    */
   bringToFront() {
-    if (!this.element?.isConnected) return;
-    return super.bringToFront();
+    if (this._frameAlive) return super.bringToFront();
+    this._rebuildFrame();
   }
 
   static DEFAULT_OPTIONS = {

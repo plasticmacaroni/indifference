@@ -2,7 +2,7 @@
   "id": "indifference",
   "title": "Indifference — PF2e Disposition Tracker",
   "description": "Track every NPC's attitude toward the party on the Pathfinder 2e ladder (Hostile to Helpful) from a GM dashboard, then post official disposition-change cards to chat.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "authors": [
     { "name": "plasticmacaroni" }
   ],

@@ -3,6 +3,16 @@
 All notable changes to **Indifference** are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/). At least I hope it does. 
 
+## [0.4.2] — Unreleased
+
+### Fixed
+- The pop-out `focus` crash for real this time: with the tracker popped out into a separate window
+  (Foundry v14 detached windows) and managed by Window Controls Next, restoring it from the taskbar
+  after the pop-out died called core `bringToFront`, which focuses the dead pop-out document's
+  window (null). The element is still *connected* in that state, so 0.4.1's check missed it — the
+  tracker now verifies the whole frame is alive (attached element, live, open `defaultView`) and
+  otherwise closes the dead frame and re-renders in the main window.
+
 ## [0.4.1] — Unreleased
 
 ### Fixed
